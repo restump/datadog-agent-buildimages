@@ -21,6 +21,10 @@ case $DD_TARGET_ARCH in
     DD_CONDA_SHA256="ea7d631e558f687e0574857def38d2c8855776a92b0cf56cf5285bede54715d9"
     CONDA_URL=https://github.com/conda-forge/miniforge/releases/download/${DD_CONDA_VERSION}/Miniforge3-Linux-aarch64.sh
     ;;
+"ppc64le")
+    DD_CONDA_SHA256="b86cfc1bf800a3bf09b29bd6e5e9a39e13d1b4f84553f339a5511971bbce9de8"
+    CONDA_URL=https://github.com/conda-forge/miniforge/releases/download/${DD_CONDA_VERSION}/Miniforge3-Linux-ppc64le.sh
+    ;;
 "armhf")
     detect_distro
     echo "Installing Python from source (armhf)"
@@ -98,7 +102,7 @@ EOF
 esac
 
 curl -fsL -o miniconda.sh $CONDA_URL
-echo "${DD_CONDA_SHA256}  miniconda.sh" | sha256sum --check
+echo "${DD_CONDA_SHA256} miniconda.sh" | sha256sum --check
 bash miniconda.sh -b
 rm miniconda.sh
 
@@ -137,3 +141,4 @@ pip uninstall -y cython # remove cython to prevent further issue with nghttp2
 conda clean -a
 
 echo "conda activate ddpy3" >> /root/.bashrc
+
