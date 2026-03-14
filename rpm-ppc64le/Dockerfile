@@ -19,8 +19,8 @@ ARG DDA_VERSION=v0.31.0
 ARG DDA_NO_DYNAMIC_DEPS=1
 # ARG CMAKE_VERSION=3.30.2
 # ARG CMAKE_SHA256="33f5a7680578481ce0403dc5a814afae613f2f6f88d632a3bda0f7ff5f4dedfc"
-ARG BAZEL_VERSION=8.6.0
-ARG BAZEL_SHA256="13a84586429b6084b13bd5040d78deda58d523012151e71e7d4be0c63dd831f9"
+ARG BAZEL_VERSION=9.0.1
+ARG BAZEL_SHA256="3f336b4510a8210f954fa3a7d6cfbd271b6f9d639732fdc11c000b6fbfca3fbe"
 # ARG CLANG_VERSION=8.0.0
 # ARG CLANG_SHA256="7e2846ff60c181d1f27d97c23c25a2295f5730b6d88612ddd53b4cbb8177c4b9"
 ARG DD_TARGET_ARCH=ppc64le
@@ -239,9 +239,9 @@ RUN curl -sSL -o "bazel-${BAZEL_VERSION}-dist.zip" "https://github.com/bazelbuil
     && unzip "bazel-${BAZEL_VERSION}-dist.zip" -d "bazel-${BAZEL_VERSION}" \
     && cd "bazel-${BAZEL_VERSION}" \
     && env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh 
-RUN cp -f ./output/bazel "/usr/local/bin/bazel${BAZEL_VERSION}" \
-    && ln -s "/usr/local/bin/bazel${BAZEL_VERSION}" bazel \
-    && ln -s /usr/local/bin/bazel bazelisk
+RUN cp ./output/bazel "/usr/local/bin/bazel${BAZEL_VERSION}" \
+    && ln -s "bazel${BAZEL_VERSION}" /usr/local/bin/bazel \
+    && ln -s bazelisk /usr/local/bin/bazel
 RUN cd .. && rm -Rf "bazel-${BAZEL_VERSION}" \
     && rm -Rf "bazel-${BAZEL_VERSION}-dist.zip"
 
