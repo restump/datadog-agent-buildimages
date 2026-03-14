@@ -1,7 +1,7 @@
 ARG BASE_IMAGE_REGISTRY=docker.io
 ARG BASE_IMAGE=${BASE_IMAGE_REGISTRY}/ppc64le/fedora:35
 
-FROM ${BASE_IMAGE_REGISTRY}/ppc64le/ubuntu:22.04 as CERT_GETTER
+FROM ${BASE_IMAGE_REGISTRY}/ppc64le/ubuntu:22.04 AS cert_getter
 ENV CACERT_BUNDLE_VERSION=2025-11-04
 ENV CACERT_BUNDLE_SHA256="8ac40bdd3d3e151a6b4078d2b2029796e8f843e3f86fbf2adbc4dd9f05e79def"
 RUN apt-get update && apt-get install -y wget
@@ -19,8 +19,10 @@ ARG DDA_VERSION=v0.31.0
 ARG DDA_NO_DYNAMIC_DEPS=1
 # ARG CMAKE_VERSION=3.30.2
 # ARG CMAKE_SHA256="33f5a7680578481ce0403dc5a814afae613f2f6f88d632a3bda0f7ff5f4dedfc"
-ARG CLANG_VERSION=8.0.0
-ARG CLANG_SHA256="7e2846ff60c181d1f27d97c23c25a2295f5730b6d88612ddd53b4cbb8177c4b9"
+ARG BAZEL_VERSION=8.6.0
+ARG BAZEL_SHA256="13a84586429b6084b13bd5040d78deda58d523012151e71e7d4be0c63dd831f9"
+# ARG CLANG_VERSION=8.0.0
+# ARG CLANG_SHA256="7e2846ff60c181d1f27d97c23c25a2295f5730b6d88612ddd53b4cbb8177c4b9"
 ARG DD_TARGET_ARCH=ppc64le
 ARG RUST_VERSION=1.91.0
 ARG RUSTUP_VERSION=1.26.0
@@ -37,11 +39,11 @@ ARG BUNDLER_VERSION=2.4.20
 # ARG AWSCLI_CHECKSUM=2bda389190cf1509584e1bcfb6c9ffe4343ffb1804cf8a9cd96ed874870f7f94
 
 # Environment
-ENV PYTHONUTF8 1
-ENV GOPATH /go
-ENV GO_VERSION $GO_VERSION
-ENV CONDA_PATH /root/miniforge3
-ENV DD_TARGET_ARCH $DD_TARGET_ARCH
+ENV PYTHONUTF8=1
+ENV GOPATH=/go
+ENV GO_VERSION=$GO_VERSION
+ENV CONDA_PATH=/root/miniforge3
+ENV DD_TARGET_ARCH=$DD_TARGET_ARCH
 
 # attempt to 'fake out' omnibus/ohai with /etc/redhat-release
 RUN echo 'CentOS Linux release 8.4.2105' > /etc/redhat-release
@@ -64,17 +66,27 @@ RUN echo $(cat /etc/redhat-release | cut -d'.' -f1 | awk '{print $NF}') > /etc/r
 #     sed -i 's/^#.*baseurl=http/baseurl=http/g' /etc/yum.repos.d/*.repo && \
 #     sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
 
+# bazel requirement for jdk 21
+COPY <<EOF /etc/yum.repos.d/adoptium.repo
+[Adoptium]
+name=Adoptium
+baseurl=https://packages.adoptium.net/artifactory/rpm/${DISTRIBUTION_NAME:-$(. /etc/os-release; echo $ID)}/\$releasever/\$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.adoptium.net/artifactory/api/gpg/key/public
+EOF
+
 RUN yum group install -y development-tools
 RUN yum -y install \
   which perl-ExtUtils-MakeMaker perl-parent perl-core pkgconfig \
   curl-devel expat-devel gettext-devel openssl-devel zlib-devel bzip2 \
-  glibc-static tar libtool \
+  glibc-static tar libtool temurin-21-jdk \
   bzip2-devel e2fsprogs-devel file-devel libacl-devel libattr-devel \
-  libxml2-devel lzo-devel nss nss-devel popt-devel postgresql-devel sharutils xz-devel java \
+  libxml2-devel lzo-devel nss nss-devel popt-devel postgresql-devel sharutils xz-devel \
   texinfo wget python3-policycoreutils libarchive-devel patchelf zstd \
   && yum clean all
 
-COPY --from=CERT_GETTER /cacert.pem /etc/pki/tls/certs/ca-bundle.crt
+COPY --from=cert_getter /cacert.pem /etc/pki/tls/certs/ca-bundle.crt
 
 # # We install our own ruby, let's remove the system one. It made rvm fail to build ruby for some reason
 # RUN yum remove -y ruby
@@ -131,8 +143,8 @@ ENV DDA_NO_DYNAMIC_DEPS=$DDA_NO_DYNAMIC_DEPS
 RUN --mount=type=bind,src=./setup/python.sh,dst=/mnt/python.sh \
     --mount=type=bind,src=./python-packages-versions.txt,dst=/mnt/python-packages-versions.txt \
     /mnt/python.sh
-ENV PATH "${CONDA_PATH}/condabin:${PATH}"
-ENV PKG_CONFIG_LIBDIR "${PKG_CONFIG_LIBDIR}:${CONDA_PATH}/lib/pkgconfig"
+ENV PATH="${CONDA_PATH}/condabin:${PATH}"
+ENV PKG_CONFIG_LIBDIR="${PKG_CONFIG_LIBDIR}:${CONDA_PATH}/lib/pkgconfig"
 
 # RVM
 COPY ./rvm/gpg-keys /gpg-keys
@@ -218,6 +230,18 @@ RUN curl -sSL -o rustup-init "https://static.rust-lang.org/rustup/archive/${RUST
     && ./rustup-init -y --profile minimal --default-toolchain "${RUST_VERSION}" \
     && echo "${RUSTUP_SHA256}  $HOME/.cargo/bin/rustc" | sha256sum --check \
     && rm ./rustup-init
+
+# Bazel; pretend to have bazelisk 
+RUN curl -sSL -o "bazel-${BAZEL_VERSION}-dist.zip" "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip" \
+    && echo "${BAZEL_SHA256} bazel-${BAZEL_VERSION}-dist.zip" | sha256sum --check \
+    && mkdir -p "bazel-${BAZEL_VERSION}" \
+    && unzip "bazel-${BAZEL_VERSION}-dist.zip" -d "bazel-${BAZEL_VERSION}" \
+    && cd "bazel-${BAZEL_VERSION}" \
+    && env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh 
+RUN cp -f ./output/bazel "/usr/local/bin/bazel${BAZEL_VERSION}" \
+    && ln -s "/usr/local/bin/bazel${BAZEL_VERSION}" bazel \
+    && ln -s /usr/local/bin/bazel bazelisk
+RUN cd .. && rm -Rf "bazel-${BAZEL_VERSION}"
 
 
 # # Install vault: https://github.com/hashicorp/vault/blob/main/CHANGELOG.md https://releases.hashicorp.com/vault
