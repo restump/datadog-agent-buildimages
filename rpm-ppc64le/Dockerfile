@@ -233,13 +233,13 @@ RUN curl -sSL -o rustup-init "https://static.rust-lang.org/rustup/archive/${RUST
     && rm ./rustup-init
 
 # Bazel; pretend to have bazelisk 
-RUN curl -sSL -o "bazel-${BAZEL_VERSION}-dist.zip" "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip" \
-    && echo "${BAZEL_SHA256} bazel-${BAZEL_VERSION}-dist.zip" | sha256sum --check \
-    && mkdir -p "bazel-${BAZEL_VERSION}" \
-    && unzip "bazel-${BAZEL_VERSION}-dist.zip" -d "bazel-${BAZEL_VERSION}" \
-    && cd "bazel-${BAZEL_VERSION}" \
-    && env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh 
-RUN cp ./output/bazel "/usr/local/bin/bazel${BAZEL_VERSION}" \
+RUN curl -sSL -o "/tmp/bazel-${BAZEL_VERSION}-dist.zip" "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip" \
+    && echo "/tmp/${BAZEL_SHA256} bazel-${BAZEL_VERSION}-dist.zip" | sha256sum --check \
+    && mkdir -p "/tmp/bazel-${BAZEL_VERSION}" \
+    && unzip "/tmp/bazel-${BAZEL_VERSION}-dist.zip" -d "/tmp/bazel-${BAZEL_VERSION}" \
+    && cd "/tmp/bazel-${BAZEL_VERSION}" \
+    && env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh \
+    ; cp "/tmp/bazel-${BAZEL_VERSION}/output/bazel" "/usr/local/bin/bazel${BAZEL_VERSION}" \
     && ln -s "bazel${BAZEL_VERSION}" /usr/local/bin/bazel \
     && ln -s bazelisk /usr/local/bin/bazel
 RUN cd .. && rm -Rf "bazel-${BAZEL_VERSION}" \
