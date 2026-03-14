@@ -67,6 +67,7 @@ RUN echo $(cat /etc/redhat-release | cut -d'.' -f1 | awk '{print $NF}') > /etc/r
 #     sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
 
 # bazel requirement for jdk 21
+ENV JAVA_HOME=/usr/lib/jvm/java-21-temurin-jdk
 RUN cat <<EOF > /etc/yum.repos.d/adoptium.repo
 [Adoptium]
 name=Adoptium
@@ -241,7 +242,8 @@ RUN curl -sSL -o "bazel-${BAZEL_VERSION}-dist.zip" "https://github.com/bazelbuil
 RUN cp -f ./output/bazel "/usr/local/bin/bazel${BAZEL_VERSION}" \
     && ln -s "/usr/local/bin/bazel${BAZEL_VERSION}" bazel \
     && ln -s /usr/local/bin/bazel bazelisk
-RUN cd .. && rm -Rf "bazel-${BAZEL_VERSION}"
+RUN cd .. && rm -Rf "bazel-${BAZEL_VERSION}" \
+    && rm -Rf "bazel-${BAZEL_VERSION}-dist.zip"
 
 
 # # Install vault: https://github.com/hashicorp/vault/blob/main/CHANGELOG.md https://releases.hashicorp.com/vault
