@@ -81,13 +81,22 @@ RUN yum group install -y development-tools
 RUN yum -y install \
   which perl-ExtUtils-MakeMaker perl-parent perl-core pkgconfig \
   curl-devel expat-devel gettext-devel openssl-devel zlib-devel bzip2 \
-  glibc-static tar libtool temurin-21-jdk \
+  glibc-static tar libtool flex libstdc++-static rpm-build temurin-21-jdk \
   bzip2-devel e2fsprogs-devel file-devel libacl-devel libattr-devel \
   libxml2-devel lzo-devel nss nss-devel popt-devel postgresql-devel sharutils xz-devel \
   texinfo wget python3-policycoreutils libarchive-devel patchelf zstd \
   && yum clean all
 
 COPY --from=cert_getter /cacert.pem /etc/pki/tls/certs/ca-bundle.crt
+
+# will need newer automake 1.16.5? 
+# ./configure --prefix=/usr/local
+# make && make install
+
+# will need autoconf > 2.71
+
+# no symlink for libstdc++.so?
+RUN ln -s libstdc++.so.6 /usr/lib64/libstdc++.so
 
 # # We install our own ruby, let's remove the system one. It made rvm fail to build ruby for some reason
 # RUN yum remove -y ruby
@@ -239,10 +248,10 @@ RUN curl -sSL -o "/tmp/bazel-${BAZEL_VERSION}-dist.zip" "https://github.com/baze
     && unzip "/tmp/bazel-${BAZEL_VERSION}-dist.zip" -d "/tmp/bazel-${BAZEL_VERSION}" \
     && cd "/tmp/bazel-${BAZEL_VERSION}" \
     && env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh \
-    ; cp "/tmp/bazel-${BAZEL_VERSION}/output/bazel" "/usr/local/bin/bazel${BAZEL_VERSION}" \
-    && ln -s "bazel${BAZEL_VERSION}" /usr/local/bin/bazel \
-    && ln -s bazelisk /usr/local/bin/bazel
-RUN cd .. && rm -Rf "bazel-${BAZEL_VERSION}" \
+    && cp -f "/tmp/bazel-${BAZEL_VERSION}/output/bazel" "/usr/local/bin/bazel${BAZEL_VERSION}" \
+    && ln -sf "bazel${BAZEL_VERSION}" /usr/local/bin/bazel \
+    && ln -sf bazel /usr/local/bin/bazelisk \
+    && cd .. && rm -Rf "bazel-${BAZEL_VERSION}" \
     && rm -Rf "bazel-${BAZEL_VERSION}-dist.zip"
 
 
